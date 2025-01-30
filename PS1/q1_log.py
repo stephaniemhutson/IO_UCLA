@@ -176,6 +176,7 @@ for j, _ in enumerate(coefs[0]):
 print("***** Q 6 *****")
 data['ratio']  = (1-data['ms_by_store_week'])/data['ms_by_store_week']
 data['fitted1'] = log_reg_1.fittedvalues
+print(data['fitted1'])
 data['elasticity_est_1'] = data['fitted1'] * data['ratio']
 data['fitted2'] = log_reg_2.fittedvalues
 data['elasticity_est_2'] = data['fitted2'] * data['ratio']
