@@ -5,6 +5,8 @@ data = pd.read_csv('./PS1_Data/OTC_Data.csv', sep='\t')
 instruments = pd.read_csv('./PS1_Data/OTCDataInstruments.csv', sep='\t')
 dems = pd.read_csv('./PS1_Data/OTCDemographics.csv', sep='\t')
 
+instruments.to_csv('./cleaned_data/OTCDataInstruments.csv')
+dems.to_csv('./cleaned_data/OTCDemographics.csv')
 
 data['rev'] = data['sales_'] * data['price_']
 data['total_cost'] = data['cost_'] * data['sales_']
@@ -47,11 +49,27 @@ normalizaed_size_by_brand = {
     10: 1,
     11: 2
 }
+firms = {
+    1: 1,
+    2: 1,
+    3: 1,
+    4: 2,
+    5: 2,
+    6: 2,
+    7: 3,
+    8: 3,
+    9: 3,
+    10: 4,
+    11: 4
+}
+
 
 data['price_per_50'] = 0
+data['firm_ids'] = 0
 
 for k, v in normalizaed_size_by_brand.items():
     data.loc[data['brand'] == k, 'price_per_50'] = data.loc[data['brand'] == k, 'price_']/v
+    data.loc[data['brand'] == k, 'firm_ids'] = v
 
 print(data)
 data.to_csv('./cleaned_data/data.csv')
