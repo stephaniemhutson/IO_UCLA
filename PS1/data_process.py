@@ -12,7 +12,6 @@ data['total_cost'] = data['cost_'] * data['sales_']
 sws = data.groupby(['store', 'week'])['sales_'].sum()
 
 
-# data.loc[:, 'ms_by_store_week'] = data.loc[:, 'sales_'] / sws[(data.loc[:, 'store'][1], data.loc[:, 'week'][1])]
 data.loc[:, 'ms_by_store_week'] = data.loc[:, 'sales_'] / data.loc[:, 'count']
 
 # Validate that the data looks similar to the data presented in table i
@@ -35,6 +34,24 @@ for brand in brands:
             data.loc[(data['store'] == store) & (data['week'] == week) & (data['brand'] == brand), 'hausman'] = data[(data['store'] != store) & (data['week'] == week) & (data['brand'] == brand)]['price_'].mean()
             data.loc[(data['store'] == store) & (data['week'] == week) & (data['brand'] == brand), 'ms_naught'] = ms_naught[(week, store)]
 
+normalizaed_size_by_brand = {
+    1: 0.5,
+    2: 1,
+    3: 2,
+    4: 0.5,
+    5: 1,
+    6: 2,
+    7: 0.5,
+    8: 1,
+    9: 2,
+    10: 1,
+    11: 2
+}
+
+data['price_per_50'] = 0
+
+for k, v in normalizaed_size_by_brand.items():
+    data.loc[data['brand'] == k, 'price_per_50'] = data.loc[data['brand'] == k, 'price_']/v
 
 print(data)
 data.to_csv('./cleaned_data/data.csv')
