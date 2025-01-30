@@ -22,7 +22,7 @@ print(results1.params)
 # 2. Using OLS with price and promotion as product characteristics and
 # brand dummies.
 
-brand_dummies = [col for col in data.columns if col[:6] == 'brand_' and len(col) < 8 and col != 'brand_1']
+brand_dummies = [col for col in data.columns if col[:6] == 'brand_' and len(col) < 9 and col != 'brand_1']
 
 X2 = data[['price_per_50', 'prom_', *brand_dummies]]
 X2 = sm.add_constant(X2)
@@ -33,7 +33,7 @@ print(results2.params)
 
 # 3. Using OLS with price and promotion as product characteristics and
 # store-brand (the interaction of brand and store) dummies.
-store_brand = [col for col in data.columns if col[:6] == 'brand_' and len(col) > 8 and col != 'brand_5_store_2']
+store_brand = [col for col in data.columns if col[:6] == 'brand_' and len(col) > 9 and col != 'brand_5_store_2']
 
 
 X3 = data[['price_per_50', 'prom_', *store_brand]]
@@ -45,58 +45,58 @@ print(results3.params)
 
 
 # 4. Estimate the models of 1, 2 and 3 using wholesale cost as an instrument.
-# print("***** Q 4 *****")
-# IV = data[['cost_', 'prom_']]
+print("***** Q 4 *****")
+IV = data[['cost_', 'prom_']]
 
 
-# stage1 = sm.OLS(X1, IV)
-# res1 = stage1.fit()
-# # print(res1.fittedvalues)
-# # data['fitted_iv4a'] = res1.fittedvalues
+stage1 = sm.OLS(X1, IV)
+res1 = stage1.fit()
+# print(res1.fittedvalues)
+# data['fitted_iv4a'] = res1.fittedvalues
 
-# model = sm.OLS(Y, res1.fittedvalues)
-# results4a = model.fit()
-# print("***** part 1 *****")
-# print(results4a.params)
-# IV = data[['cost_', 'prom_', *brand_dummies]]
+model = sm.OLS(Y, res1.fittedvalues)
+results4a = model.fit()
+print("***** part 1 *****")
+print(results4a.params)
+IV = data[['cost_', 'prom_', *brand_dummies]]
 
-# model = gmm.IV2SLS(Y, X2, instrument=IV)
-# results4b = model.fit()
-# print("***** part 2 *****")
-# print(results4b.params)
+model = gmm.IV2SLS(Y, X2, instrument=IV)
+results4b = model.fit()
+print("***** part 2 *****")
+print(results4b.params)
 
-# IV = data[['cost_', 'prom_', *store_brand]]
+IV = data[['cost_', 'prom_', *store_brand]]
 
-# model = gmm.IV2SLS(Y, X3, instrument=IV)
-# results4c = model.fit()
-# print("***** part 3 *****")
-# # print("Skip because of singular matrix?")
-# print(results4c.params)
+model = gmm.IV2SLS(Y, X3, instrument=IV)
+results4c = model.fit()
+print("***** part 3 *****")
+# print("Skip because of singular matrix?")
+print(results4c.params)
 
-# # 5. Estimate the models of 1, 2 and 3 using the Hausman instrument (average price in other markets).
+# 5. Estimate the models of 1, 2 and 3 using the Hausman instrument (average price in other markets).
 
-# print("***** Q 5 *****")
-# model = gmm.IV2SLS(Y, X1, instrument=IV)
-# model = gmm.IV2SLS(Y, X1, instrument=IV)
-# results5a = model.fit()
-# print("***** part 1 *****")
-# print(results5a.params)
+print("***** Q 5 *****")
+model = gmm.IV2SLS(Y, X1, instrument=IV)
+model = gmm.IV2SLS(Y, X1, instrument=IV)
+results5a = model.fit()
+print("***** part 1 *****")
+print(results5a.params)
 
-# IV = data[['hausman', 'prom_', *brand_dummies]]
-# model = gmm.IV2SLS(Y, X2, instrument=IV)
-# results5b = model.fit()
-# print("***** part 2 *****")
-# print(results5b.params)
+IV = data[['hausman', 'prom_', *brand_dummies]]
+model = gmm.IV2SLS(Y, X2, instrument=IV)
+results5b = model.fit()
+print("***** part 2 *****")
+print(results5b.params)
 
-# IV = data[['hausman', 'prom_', *store_brand]]
+IV = data[['hausman', 'prom_', *store_brand]]
 
-# model = gmm.IV2SLS(Y, X3, instrument=IV)
-# results5c = model.fit()
-# print("***** part 3 *****")
-# print(results5c.params)
-# # print("Skip because of singular matrix?")
+model = gmm.IV2SLS(Y, X3, instrument=IV)
+results5c = model.fit()
+print("***** part 3 *****")
+print(results5c.params)
+# print("Skip because of singular matrix?")
 
-# # 6. Using the analytic formula for elasticity of the logit model, compute
+# 6. Using the analytic formula for elasticity of the logit model, compute
 # the mean own-price elasticities for all brand in the market using the
 # estimates in 1, 2 and 3. Do these results make sense? (Discuss)
 
