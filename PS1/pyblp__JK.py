@@ -1,6 +1,7 @@
 import pyblp
 import pandas as pd
 import numpy as np
+import pickle
 
 # Data setup
 data = pd.read_csv('./PS1/cleaned_data/data.csv')
@@ -29,31 +30,68 @@ demo = demo.drop(columns=['store','week','agent'])
 # Nodes are random utility draws
 demo['nodes0'] = np.random.normal(size=len(demo))
 
+try:
+    # raise Exception
+    with open('./PS1/blp_pickle', 'rb') as f:
 
-# Linear (X1) and nonlinear (X2) variables
-X1 = pyblp.Formulation('1 + prices + prom_ + C(product_ids) ')
-X2 = pyblp.Formulation('0 + prices + branded')
-# Demographic that interacts: income
-agent_formulation = pyblp.Formulation('0 + hhincome')
+        results = pickle.load(f)
+        f.close()
+except Exception as e:
+    print(str(e))
 
-problem = pyblp.Problem(
-    product_formulations=(X1, X2, ),
-    agent_formulation=agent_formulation,
-    product_data=data,
-    agent_data=demo,
+
+    # Set up Instruments
+    instrument_columns = ['cost_', 'avoutprice'] + [f'pricestore{i}' for i in range(1, 31)]
+    IV_formulation = pyblp.Formulation('0 + ' + ' + '.join(instrument_columns))
+    local_instruments = pyblp.build_blp_instruments(
+        IV_formulation,
+        data
     )
 
-# Restrict parameters: no random interaction with price, no inc interaction with brand
-initial_sigma = np.diag([0,1])
-initial_pi = np.array([1,0])
-bfgs = pyblp.Optimization('bfgs',{'gtol':1e-4})
-results = problem.solve(initial_sigma,initial_pi,optimization=bfgs,method='1s')
+    for i, column in enumerate(local_instruments.T):
+        data[f'demand_instruments{i}'] = column
+
+
+    # Linear (X1) and nonlinear (X2) variables
+    X1 = pyblp.Formulation('1 + prices + prom_ + C(product_ids) ')
+    X2 = pyblp.Formulation('0 + prices + branded')
+    # Demographic that interacts: income
+    agent_formulation = pyblp.Formulation('0 + hhincome')
+
+    problem = pyblp.Problem(
+        product_formulations=(X1, X2, ),
+        agent_formulation=agent_formulation,
+        product_data=data,
+        agent_data=demo,
+        )
+
+    # Restrict parameters: no random interaction with price, no inc interaction with brand
+    initial_sigma = np.diag([0,1])
+    initial_pi = np.array([1,0])
+    bfgs = pyblp.Optimization('bfgs',{'gtol':1e-4})
+    results = problem.solve(
+        initial_sigma,
+        initial_pi,
+        optimization=bfgs,
+        method='2s')
+
+    file = open('./PS1/blp_pickle', 'wb')
+
+    # dump information to that file
+    pickle.dump(results, file)
+
+    # close the file
+    file.close()
+
+print(results)
+
 
 
 # 2.2: Compute elasticities for store 9 week 10
 elasticities = results.compute_elasticities()
 single_market = data['market_ids'] == '9_10'
-elasticities[single_market]
+print(elasticities[single_market])
+single_market_data = data[single_market]
 
 
 # 2.3 Back out marginal costs (INCOMPLETE)
@@ -73,8 +111,48 @@ for i in range(9,11):
     for j in range(9,11):
         Omega[i][j] = 1
 
-data = pd.concat([data,pd.DataFrame(elasticities)])
+
+
+# pyblp
+## Note: these result in the same answer
+costs = results.compute_costs(market_id='9_10')
+print(costs)
+
+# manual
+## Note: these result in the same answer
+el_data = pd.concat([data,pd.DataFrame(elasticities)])
 rename_dict = {}
-for i in range(0,11):
-    rename_dict[i] = 'e_'+str(i+1)
-data = data.rename(columns=rename_dict)
+for i in range(11):
+    rename_dict[i] = f'e_{i+1}'
+el_data = el_data.rename(columns=rename_dict)
+
+single_market_data = el_data[(el_data['store'] == 9) & (el_data['week'] == 10)]
+mc = single_market_data['prices'].to_numpy() * (np.eye(11) + np.linalg.inv(np.multiply(Omega, elasticities[single_market])))
+manual_costs = np.matrix([[mc[i][i]] for i, _ in enumerate(mc)])
+
+
+
+### Question 3 Mergers
+single_market_data.loc[:, 'firm_ids'] = (single_market_data.loc[:, 'product_ids'] +1) // 3
+
+
+single_market_data['merger_ids'] = single_market_data['firm_ids'].replace(2, 0)
+single_market_data['merger_ids'] = single_market_data['firm_ids'].replace(1, 0)
+
+
+all_costs = results.compute_costs()
+
+changed_prices = results.compute_prices(
+    firm_ids=single_market_data['merger_ids'],
+    costs=costs,
+    market_id='9_10'
+)
+
+original_prices = results.compute_prices(market_id='9_10', costs=costs)
+print("New prices after merger:")
+print(changed_prices)
+print("Verify the originial prices:")
+print(" - Predicted:")
+print(original_prices)
+print(" - Raw:")
+print(single_market_data['prices'])
