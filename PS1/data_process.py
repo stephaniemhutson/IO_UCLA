@@ -1,12 +1,12 @@
 import pandas as pd
 from scipy.special import logit
 
-data = pd.read_csv('./PS1_Data/OTC_Data.csv', sep='\t')
-instruments = pd.read_csv('./PS1_Data/OTCDataInstruments.csv', sep='\t')
-dems = pd.read_csv('./PS1_Data/OTCDemographics.csv', sep='\t')
+data = pd.read_csv('./PS1/PS1_Data/OTC_Data.csv', sep='\t')
+instruments = pd.read_csv('./PS1/PS1_Data/OTCDataInstruments.csv', sep='\t')
+dems = pd.read_csv('./PS1/PS1_Data/OTCDemographics.csv', sep='\t')
 
-instruments.to_csv('./cleaned_data/OTCDataInstruments.csv')
-dems.to_csv('./cleaned_data/OTCDemographics.csv')
+instruments.to_csv('./PS1/cleaned_data/OTCDataInstruments.csv')
+dems.to_csv('./PS1/cleaned_data/OTCDemographics.csv')
 
 data['rev'] = data['sales_'] * data['price_']
 data['total_cost'] = data['cost_'] * data['sales_']
@@ -65,11 +65,13 @@ firms = {
 
 
 data['price_per_50'] = 0
+data['cost_per_50'] = 0
 data['firm_ids'] = 0
 
 for k, v in normalizaed_size_by_brand.items():
     data.loc[data['brand'] == k, 'price_per_50'] = data.loc[data['brand'] == k, 'price_']/v
+    data.loc[data['brand'] == k, 'cost_per_50'] = data.loc[data['brand'] == k, 'cost_']/v
     data.loc[data['brand'] == k, 'firm_ids'] = v
 
 print(data)
-data.to_csv('./cleaned_data/data.csv')
+data.to_csv('./PS1/cleaned_data/data.csv')
