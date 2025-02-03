@@ -32,68 +32,96 @@ demo = demo.drop(columns=['store','week','agent'])
 
 # Nodes are random utility draws
 demo['nodes0'] = np.random.normal(size=len(demo))
+demo['nodes1'] = np.random.normal(size=len(demo))
+demo['nodes2'] = np.random.normal(size=len(demo))
+demo['nodes3'] = np.random.normal(size=len(demo))
+demo['nodes4'] = np.random.normal(size=len(demo))
+demo['nodes5'] = np.random.normal(size=len(demo))
 
-try:
-    with open('./PS1/blp_pickle', 'rb') as f:
 
-        results = pickle.load(f)
-        f.close()
-except Exception as e:
-    print(str(e))
+def get_blp_results(is_logit=False):
+    file_name = './PS1/blp_pickle'
+    if is_logit:
+        file_name = file_name + '_logit'
+    try:
+        with open(file_name, 'rb') as f:
+            results = pickle.load(f)
+            f.close()
+            return results
+    except Exception as e:
+        print(str(e))
 
-    # Set up Instruments
-    instrument_columns = ['cost_', 'avoutprice'] + [f'pricestore{i}' for i in range(1, 31)]
-    IV_formulation = pyblp.Formulation('0 + ' + ' + '.join(instrument_columns))
-    local_instruments = pyblp.build_blp_instruments(
-        IV_formulation,
-        data
-    )
 
-    for i, column in enumerate(local_instruments.T):
-        data[f'demand_instruments{i}'] = column
-
-    # Normalize instruments
-    for i in range(64):
-        data['demand_instruments' + str(i)] = np.where(((((data['product_ids'] == 1) | (data['product_ids'] == 4)) | (data['product_ids'] == 7))),2*data['demand_instruments' + str(i)],data['demand_instruments' + str(i)])
-        data['demand_instruments' + str(i)] = np.where((((data['product_ids'] == 3) | (data['product_ids'] == 6)) | ((data['product_ids'] == 7) | (data['product_ids'] == 11))), data['demand_instruments' + str(i)]/2,data['demand_instruments' + str(i)])
-
-    # Linear (X1) and nonlinear (X2) variables
-    X1 = pyblp.Formulation('1 + prices + prom_ + C(product_ids) ')
-    X2 = pyblp.Formulation('0 + prices + C(firm_ids)')
-    # Demographic that interacts: income
-    agent_formulation = pyblp.Formulation('0 + hhincome')
-
-    problem = pyblp.Problem(
-        product_formulations=(X1, X2, ),
-        agent_formulation=agent_formulation,
-        product_data=data,
-        agent_data=demo,
+        # Set up Instruments
+        instrument_columns = ['cost_', 'avoutprice'] + [f'pricestore{i}' for i in range(1, 31)]
+        IV_formulation = pyblp.Formulation('0 + ' + ' + '.join(instrument_columns))
+        local_instruments = pyblp.build_blp_instruments(
+            IV_formulation,
+            data
         )
 
-    # Restrict parameters: no random interaction with price, no inc interaction with brand
-    initial_sigma = np.diag([1,0,0,0,0,0])
-    initial_pi = np.array([0,1,1,1,1,1])
-    bfgs = pyblp.Optimization('bfgs',{'gtol':1e-4})
-    results = problem.solve(
-        initial_sigma,
-        initial_pi,
-        optimization=bfgs,
-        method='2s')
+        for i, column in enumerate(local_instruments.T):
+            data[f'demand_instruments{i}'] = column
 
-    file = open('./PS1/blp_pickle', 'wb')
+        # Normalize instruments
+        for i in range(64):
+            data['demand_instruments' + str(i)] = np.where(((((data['product_ids'] == 1) | (data['product_ids'] == 4)) | (data['product_ids'] == 7))),2*data['demand_instruments' + str(i)],data['demand_instruments' + str(i)])
+            data['demand_instruments' + str(i)] = np.where((((data['product_ids'] == 3) | (data['product_ids'] == 6)) | ((data['product_ids'] == 7) | (data['product_ids'] == 11))), data['demand_instruments' + str(i)]/2,data['demand_instruments' + str(i)])
 
-    # dump information to that file
-    pickle.dump(results, file)
+        # Linear (X1) and nonlinear (X2) variables
+        X1 = pyblp.Formulation('1 + prices + prom_ + C(product_ids) ')
+        X2 = pyblp.Formulation('0 + prices + C(firm_ids)')
+        # Demographic that interacts: income
+        agent_formulation = pyblp.Formulation('0 + hhincome')
 
-    # close the file
-    file.close()
+        problem = pyblp.Problem(
+            product_formulations=(X1, X2, ),
+            agent_formulation=agent_formulation,
+            product_data=data,
+            agent_data=demo,
+            )
 
+        # Restrict parameters: no random interaction with price, no inc interaction with brand
+        if is_logit:
+            initial_sigma = np.diag([0,0,0,0,0,0])
+            initial_pi = np.array([0,0,0,0,0,0])
+        else:
+            initial_sigma = np.diag([0,1, 1, 1, 1, 1])
+            initial_pi = np.array([1,0, 0,0 ,0,0])
+        bfgs = pyblp.Optimization('bfgs',{'gtol':1e-4})
+        results = problem.solve(
+            initial_sigma,
+            initial_pi,
+            optimization=bfgs,
+            method='2s')
+
+        file = open(file_name, 'wb')
+
+        # dump information to that file
+        pickle.dump(results, file)
+
+        # close the file
+        file.close()
+        return results
+
+results = get_blp_results()
+print("BLP results:")
 print(results)
 
+logit_results = get_blp_results(True)
+print("Logit results:")
+print(logit_results)
 
 
-# 2.2: Compute elasticities for store 9 week 10
-elasticities = results.compute_elasticities()
+def get_estasticities(results):
+    # 2.2: Compute elasticities for store 9 week 10
+    elasticities = results.compute_elasticities()
+    return elasticities
+
+elasticities = get_estasticities(results)
+logit_elasticities = get_estasticities(logit_results)
+
+
 single_market = data['market_ids'] == '9_10'
 print("Market elasticities:")
 
@@ -102,7 +130,6 @@ brands = [
     'Advil 25', 'Advil 50', 'Advil 100',
     'Bayer 25', 'Bayer 50', 'Bayer 100',
     'Generic 50', 'Generic 100',
-
 ]
 
 print(f"& " +" & ".join(brands) + " \\\\")
@@ -114,6 +141,15 @@ single_market_data = data[single_market]
 
 
 # 2.3 Back out marginal costs (INCOMPLETE)
+
+Omega_separate_firms = np.eye(11)
+
+costs_separate_firms = results.compute_costs(market_id='9_10', ownership=Omega_separate_firms)
+print("2.3: costs under the assumption that each brand is owned by a single company")
+print(costs_separate_firms)
+
+
+### Question 3 Mergers
 
 # Define Same-brand matrix
 Omega = np.zeros((11,11))
@@ -131,38 +167,57 @@ for i in range(9,11):
         Omega[i][j] = 1
 
 
-
 # pyblp
 ## Note: these result in the same answer
-costs = results.compute_costs(market_id='9_10')
-print("Computed Costs:")
-print(costs)
+logit_costs = logit_results.compute_costs(market_id='9_10')
+print("Computed Costs in logit model:")
+print(logit_costs)
 
 # manual
 ## Note: these result in the same answer
-el_data = pd.concat([data,pd.DataFrame(elasticities)])
+el_data = pd.concat([data,pd.DataFrame(logit_elasticities)])
 rename_dict = {}
 for i in range(11):
     rename_dict[i] = f'e_{i+1}'
 el_data = el_data.rename(columns=rename_dict)
 
 single_market_data = el_data[(el_data['store'] == 9) & (el_data['week'] == 10)]
-mc = single_market_data['prices'].to_numpy() * (np.eye(11) + np.linalg.inv(np.multiply(Omega, elasticities[single_market])))
+mc = single_market_data['prices'].to_numpy() * (np.eye(11) + np.linalg.inv(np.multiply(Omega, logit_elasticities[single_market])))
 manual_costs = np.matrix([[mc[i][i]] for i, _ in enumerate(mc)])
+print("Manually computed logit costs")
+print(manual_costs)
 
 
+# Logit costs
+single_market_data.loc[single_market_data['firm_ids'] < 5, 'merger_ids'] = 1
+print(single_market_data[['firm_ids', 'merger_ids']])
 
-### Question 3 Mergers
+mp = mc * np.linalg.inv(np.eye(11) + np.linalg.inv(np.multiply(Omega, logit_elasticities[single_market])))
+manual_costs = np.matrix([[mp[i][i]] for i, _ in enumerate(mp)])
+print(manual_costs)
+
+# all_costs = results.compute_costs()
 
 
+changed_prices = logit_results.compute_prices(
+    firm_ids=single_market_data['merger_ids'],
+    costs=logit_costs,
+    market_id='9_10'
+)
 
-single_market_data['merger_ids'] = single_market_data['firm_ids'].replace(3, 1)
-single_market_data['merger_ids'] = single_market_data['firm_ids'].replace(2, 1)
-single_market_data['merger_ids'] = single_market_data['firm_ids'].replace(1, 1)
+# 3.1 Predict prices from logit
+original_prices = logit_results.compute_prices(market_id='9_10', costs=logit_costs)
+print("New prices after merger:")
+print(changed_prices)
+print("Verify the originial prices:")
+print(" - Predicted:")
+print(original_prices)
+print(" - Raw:")
+print(single_market_data['prices'])
 
 
-
-all_costs = results.compute_costs()
+# 3.3 Predict prices from blp
+costs = results.compute_costs(market_id='9_10', ownership=Omega)
 
 changed_prices = results.compute_prices(
     firm_ids=single_market_data['merger_ids'],
