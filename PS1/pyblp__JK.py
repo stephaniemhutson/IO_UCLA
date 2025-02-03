@@ -52,6 +52,10 @@ except Exception as e:
     for i, column in enumerate(local_instruments.T):
         data[f'demand_instruments{i}'] = column
 
+    # Normalize instruments
+    for i in range(64):
+        data['demand_instruments' + str(i)] = np.where(((((data['product_ids'] == 1) | (data['product_ids'] == 4)) | (data['product_ids'] == 7))),2*data['demand_instruments' + str(i)],data['demand_instruments' + str(i)])
+        data['demand_instruments' + str(i)] = np.where((((data['product_ids'] == 3) | (data['product_ids'] == 6)) | ((data['product_ids'] == 7) | (data['product_ids'] == 11))), data['demand_instruments' + str(i)]/2,data['demand_instruments' + str(i)])
 
     # Linear (X1) and nonlinear (X2) variables
     X1 = pyblp.Formulation('1 + prices + prom_ + C(product_ids) ')
