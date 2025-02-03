@@ -71,8 +71,8 @@ except Exception as e:
         )
 
     # Restrict parameters: no random interaction with price, no inc interaction with brand
-    initial_sigma = np.diag([0,1,0,0,0,0])
-    initial_pi = np.array([1,0,0,0,0,0])
+    initial_sigma = np.diag([1,0,0,0,0,0])
+    initial_pi = np.array([0,1,1,1,1,1])
     bfgs = pyblp.Optimization('bfgs',{'gtol':1e-4})
     results = problem.solve(
         initial_sigma,
