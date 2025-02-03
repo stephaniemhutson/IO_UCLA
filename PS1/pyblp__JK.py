@@ -96,7 +96,20 @@ print(results)
 elasticities = results.compute_elasticities()
 single_market = data['market_ids'] == '9_10'
 print("Market elasticities:")
-print(elasticities[single_market])
+
+brands = [
+    'Tylenol 25', 'Tylenol 50', 'Tylenol 100',
+    'Advil 25', 'Advil 50', 'Advil 100',
+    'Bayer 25', 'Bayer 50', 'Bayer 100',
+    'Generic 50', 'Generic 100',
+
+]
+
+print(f"& " +" & ".join(brands) + " \\\\")
+for i, row in enumerate(elasticities[single_market]):
+    row = [str(round(i, 4)) for i in row]
+    print(f'{brands[i]} & ' + ' & '.join(row) + ' \\\\')
+
 single_market_data = data[single_market]
 
 
