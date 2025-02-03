@@ -20,6 +20,8 @@ demo['market_ids'] = demo['store'].astype(str) + '_' + demo['week'].astype(str)
 # Get all variables
 data = pd.merge(data, ivs, on=['store', 'brand', 'week', 'cost_'])
 data = data.rename(columns={"price_per_50": "prices", "brand": "product_ids", "ms_by_store_week": "shares"})
+data.loc[:, 'firm_ids'] = ((data.loc[:, 'product_ids']) -1) // 3 +1
+data.loc[data['firm_ids'] == 4, 'firm_ids'] = data.loc[data['firm_ids'] == 4]['product_ids']
 
 # Get income
 demo = pd.wide_to_long(demo,stubnames='hhincome',i=['market_ids'],j='agent')
@@ -27,18 +29,17 @@ demo['weights'] = 0.05
 demo = demo.reset_index()
 demo = demo.drop(columns=['store','week','agent'])
 
+
 # Nodes are random utility draws
 demo['nodes0'] = np.random.normal(size=len(demo))
 
 try:
-    # raise Exception
     with open('./PS1/blp_pickle', 'rb') as f:
 
         results = pickle.load(f)
         f.close()
 except Exception as e:
     print(str(e))
-
 
     # Set up Instruments
     instrument_columns = ['cost_', 'avoutprice'] + [f'pricestore{i}' for i in range(1, 31)]
@@ -54,7 +55,7 @@ except Exception as e:
 
     # Linear (X1) and nonlinear (X2) variables
     X1 = pyblp.Formulation('1 + prices + prom_ + C(product_ids) ')
-    X2 = pyblp.Formulation('0 + prices + branded')
+    X2 = pyblp.Formulation('0 + prices + C(firm_ids)')
     # Demographic that interacts: income
     agent_formulation = pyblp.Formulation('0 + hhincome')
 
@@ -66,8 +67,8 @@ except Exception as e:
         )
 
     # Restrict parameters: no random interaction with price, no inc interaction with brand
-    initial_sigma = np.diag([0,1])
-    initial_pi = np.array([1,0])
+    initial_sigma = np.diag([0,1,0,0,0,0])
+    initial_pi = np.array([1,0,0,0,0,0])
     bfgs = pyblp.Optimization('bfgs',{'gtol':1e-4})
     results = problem.solve(
         initial_sigma,
@@ -90,6 +91,7 @@ print(results)
 # 2.2: Compute elasticities for store 9 week 10
 elasticities = results.compute_elasticities()
 single_market = data['market_ids'] == '9_10'
+print("Market elasticities:")
 print(elasticities[single_market])
 single_market_data = data[single_market]
 
@@ -116,6 +118,7 @@ for i in range(9,11):
 # pyblp
 ## Note: these result in the same answer
 costs = results.compute_costs(market_id='9_10')
+print("Computed Costs:")
 print(costs)
 
 # manual
@@ -133,11 +136,13 @@ manual_costs = np.matrix([[mc[i][i]] for i, _ in enumerate(mc)])
 
 
 ### Question 3 Mergers
-single_market_data.loc[:, 'firm_ids'] = (single_market_data.loc[:, 'product_ids'] +1) // 3
 
 
-single_market_data['merger_ids'] = single_market_data['firm_ids'].replace(2, 0)
-single_market_data['merger_ids'] = single_market_data['firm_ids'].replace(1, 0)
+
+single_market_data['merger_ids'] = single_market_data['firm_ids'].replace(3, 1)
+single_market_data['merger_ids'] = single_market_data['firm_ids'].replace(2, 1)
+single_market_data['merger_ids'] = single_market_data['firm_ids'].replace(1, 1)
+
 
 
 all_costs = results.compute_costs()
