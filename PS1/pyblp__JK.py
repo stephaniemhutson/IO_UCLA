@@ -32,11 +32,6 @@ demo = demo.drop(columns=['store','week','agent'])
 
 # Nodes are random utility draws
 demo['nodes0'] = np.random.normal(size=len(demo))
-demo['nodes1'] = np.random.normal(size=len(demo))
-demo['nodes2'] = np.random.normal(size=len(demo))
-demo['nodes3'] = np.random.normal(size=len(demo))
-demo['nodes4'] = np.random.normal(size=len(demo))
-demo['nodes5'] = np.random.normal(size=len(demo))
 
 
 def get_blp_results(is_logit=False):
@@ -60,13 +55,17 @@ def get_blp_results(is_logit=False):
             data
         )
 
-        for i, column in enumerate(local_instruments.T):
-            data[f'demand_instruments{i}'] = column
+        # Define instruments: cost and prices
+        rename_dict = {'cost_': 'demand_instruments0', 'avoutprice': 'demand_instruments1'}
+        for i in range(1, 31):
+            rename_dict['pricestore' + str(i)] = 'demand_instruments' + str(i+1)
 
         # Normalize instruments
-        for i in range(64):
+        data = data.rename(columns=rename_dict)
+        for i in range(32):
             data['demand_instruments' + str(i)] = np.where(((((data['product_ids'] == 1) | (data['product_ids'] == 4)) | (data['product_ids'] == 7))),2*data['demand_instruments' + str(i)],data['demand_instruments' + str(i)])
             data['demand_instruments' + str(i)] = np.where((((data['product_ids'] == 3) | (data['product_ids'] == 6)) | ((data['product_ids'] == 7) | (data['product_ids'] == 11))), data['demand_instruments' + str(i)]/2,data['demand_instruments' + str(i)])
+
 
         # Linear (X1) and nonlinear (X2) variables
         X1 = pyblp.Formulation('1 + prices + prom_ + C(product_ids) ')
