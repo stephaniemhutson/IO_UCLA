@@ -33,6 +33,13 @@ demo = demo.drop(columns=['store','week','agent'])
 # Nodes are random utility draws
 demo['nodes0'] = np.random.normal(size=len(demo))
 
+brands = [
+    'Tylenol 25', 'Tylenol 50', 'Tylenol 100',
+    'Advil 25', 'Advil 50', 'Advil 100',
+    'Bayer 25', 'Bayer 50', 'Bayer 100',
+    'Generic 50', 'Generic 100',
+]
+
 
 def get_blp_results(is_logit=False):
     file_name = './PS1/blp_pickle'
@@ -48,7 +55,7 @@ def get_blp_results(is_logit=False):
 
 
         # Set up Instruments
-        instrument_columns = ['cost_', 'avoutprice'] + [f'pricestore{i}' for i in range(1, 31)]
+        instrument_columns = ['cost_per_50', 'avoutprice'] + [f'pricestore{i}' for i in range(1, 31)]
         IV_formulation = pyblp.Formulation('0 + ' + ' + '.join(instrument_columns))
         local_instruments = pyblp.build_blp_instruments(
             IV_formulation,
@@ -104,12 +111,21 @@ def get_blp_results(is_logit=False):
         return results
 
 results = get_blp_results()
-print("BLP results:")
-print(results)
+
+print("Question 3.1")
+
+
+print(" & coeficient \\\\")
+print("$\\alpha$ & " + f"{round(results.beta.item(0), 4)}" +" \\\\")
+for i, brand in enumerate(brands):
+    print(f"{brand} & {round(results.beta.item(i + 2), 4)} "+"\\\\")
+
+print(" $\\sigma_{b1}$: Tylenol & " + f"{round(results.sigma.item((1,1)), 4)}"+" \\\\")
+print(" $\\sigma_{b2}$: Advil & " +f"{round(results.sigma.item((2,2)), 4)} "+"\\\\")
+print(" $\\sigma_{b3}$: Bayer & " +f"{round(results.sigma.item((3,3)), 4)} "+"\\\\")
+print(" $\\sigma_{I}$ & "+f"{round(results.pi.item(0), 4)}")
 
 logit_results = get_blp_results(True)
-print("Logit results:")
-print(logit_results)
 
 
 def get_estasticities(results):
@@ -124,12 +140,6 @@ logit_elasticities = get_estasticities(logit_results)
 single_market = data['market_ids'] == '9_10'
 print("Market elasticities:")
 
-brands = [
-    'Tylenol 25', 'Tylenol 50', 'Tylenol 100',
-    'Advil 25', 'Advil 50', 'Advil 100',
-    'Bayer 25', 'Bayer 50', 'Bayer 100',
-    'Generic 50', 'Generic 100',
-]
 
 print(f"& " +" & ".join(brands) + " \\\\")
 for i, row in enumerate(elasticities[single_market]):
@@ -162,15 +172,16 @@ for i in range(6,9):
     for j in range(6,9):
         Omega[i][j] = 1
 for i in range(9,11):
-    for j in range(9,11):
-        Omega[i][j] = 1
+    Omega[i][i] = 1
 
+for row in Omega:
+    print(" & ".join([str(int(i.item())) for i in row]))
 
-# pyblp
-## Note: these result in the same answer
-logit_costs = logit_results.compute_costs(market_id='9_10')
-print("Computed Costs in logit model:")
-print(logit_costs)
+Omega_merged = np.eye(11)
+for i in range(9):
+    for j in range(9):
+        Omega_merged[i][j] = 1
+
 
 # manual
 ## Note: these result in the same answer
@@ -180,55 +191,60 @@ for i in range(11):
     rename_dict[i] = f'e_{i+1}'
 el_data = el_data.rename(columns=rename_dict)
 
-single_market_data = el_data[(el_data['store'] == 9) & (el_data['week'] == 10)]
+
+
+# manual prices (logit)
+
+wholesale_costs = single_market_data['cost_per_50'].to_numpy()
+
+
+# manual prices (blp, seperate firms)
+mc = single_market_data['prices'].to_numpy() * (np.eye(11) + np.linalg.inv(np.multiply(Omega_separate_firms, elasticities[single_market])))
+manual_costs = [mc[i][i] for i, _ in enumerate(mc)]
+
+mp = mc * np.linalg.inv(np.eye(11) + np.linalg.inv(np.multiply(Omega_merged, elasticities[single_market])))
+print("2.3 Marginal Costs")
+print(" & wholesa1le & computed MC \\\\")
+for i, brand in enumerate(brands):
+    print(f"{brand} & {wholesale_costs[i]} & {round(manual_costs[i], 4)} \\\\")
+
+manual_prices = [[mp[i][i]] for i, _ in enumerate(mp)]
+
+
+
+# 3.1 Predict prices from logit
+
+# manual
+single_market_data = el_data[el_data['market_ids'] == '9_10']
 mc = single_market_data['prices'].to_numpy() * (np.eye(11) + np.linalg.inv(np.multiply(Omega, logit_elasticities[single_market])))
-manual_costs = np.matrix([[mc[i][i]] for i, _ in enumerate(mc)])
-print("Manually computed logit costs")
-print(manual_costs)
+manual_costs = [mc[i][i] for i, _ in enumerate(mc)]
+mp_logit = mc * np.linalg.inv(np.eye(11) + np.linalg.inv(np.multiply(Omega_merged, logit_elasticities[single_market])))
+manual_prices_logit = [[mp_logit[i][i]] for i, _ in enumerate(mp_logit)]
 
-
-# Logit costs
-single_market_data.loc[single_market_data['firm_ids'] < 5, 'merger_ids'] = 1
-print(single_market_data[['firm_ids', 'merger_ids']])
-
-mp = mc * np.linalg.inv(np.eye(11) + np.linalg.inv(np.multiply(Omega, logit_elasticities[single_market])))
-manual_costs = np.matrix([[mp[i][i]] for i, _ in enumerate(mp)])
-print(manual_costs)
-
-# all_costs = results.compute_costs()
-
-
-changed_prices = logit_results.compute_prices(
-    firm_ids=single_market_data['merger_ids'],
+# pyblp
+logit_costs = logit_results.compute_costs(market_id='9_10', ownership=Omega)
+changed_prices_logit = logit_results.compute_prices(
+    ownership=Omega_merged,
     costs=logit_costs,
     market_id='9_10'
 )
-
-# 3.1 Predict prices from logit
-original_prices = logit_results.compute_prices(market_id='9_10', costs=logit_costs)
-print("New prices after merger:")
-print(changed_prices)
-print("Verify the originial prices:")
-print(" - Predicted:")
-print(original_prices)
-print(" - Raw:")
-print(single_market_data['prices'])
-
+original_prices_logit = logit_results.compute_prices(market_id='9_10', costs=logit_costs)
 
 # 3.3 Predict prices from blp
 costs = results.compute_costs(market_id='9_10', ownership=Omega)
 
+single_market_data.loc[single_market_data['firm_ids'] < 5, 'merger_ids'] = 1
 changed_prices = results.compute_prices(
-    firm_ids=single_market_data['merger_ids'],
+    # firm_ids=single_market_data['merger_ids'],
+    ownership=Omega_merged,
     costs=costs,
     market_id='9_10'
 )
 
 original_prices = results.compute_prices(market_id='9_10', costs=costs)
-print("New prices after merger:")
-print(changed_prices)
-print("Verify the originial prices:")
-print(" - Predicted:")
-print(original_prices)
-print(" - Raw:")
-print(single_market_data['prices'])
+original_prices = single_market_data['prices'].to_numpy()
+
+print("Question 3")
+print( "& org. & original predicted &  logit & rnd. coef \\\\")
+for i, brand in enumerate(brands):
+    print(f"{brand} &   {round(original_prices[i], 4)} & {round(original_prices_logit[i][0], 4)}& {round(changed_prices_logit[i][0], 4)} & {round(changed_prices[i][0], 4)} \\\\")
