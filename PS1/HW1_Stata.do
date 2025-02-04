@@ -141,9 +141,9 @@ keep store week brand price* share*
 save "$data/tmp", replace
 
 // Save elasticities for all store-weeks
-local allmodels "model1ols model1costiv model1hausmaniv model2ols model2costiv model2hausmaniv model3ols model3costiv model3hausmaniv"
+global allmodels "model1ols model1costiv model1hausmaniv model2ols model2costiv model2hausmaniv model3ols model3costiv model3hausmaniv"
 
-foreach m in `allmodels' {
+foreach m in $allmodels {
     use "$data/tmp", clear
     estimates restore `m'
 
@@ -166,7 +166,6 @@ foreach m in `allmodels' {
     qui reshape long e_, i(ct) j(brand)
     drop ct
     rename e_ e
-    qui export delimited "./elasticity_`m'.csv", replace datafmt
 
     // Save as dta to merge later
     qui save "$data/elasticity_`m'", replace
@@ -176,7 +175,7 @@ erase "$data/tmp.dta"
 
 // Get OLS elasticities to merge into one (LaTeX) table
 local ols "model1ols model2ols model3ols"
-import delimited "./elasticity_model1ols.csv", clear
+use "$data/elasticity_model1ols", clear
 rename e one
 merge 1:1 brand using "$data/elasticity_model2ols"
 drop _merge
@@ -185,5 +184,12 @@ merge 1:1 brand using "$data/elasticity_model3ols"
 drop _merge
 rename e three
 export delimited "$data/elasticity_ols.csv", replace datafmt
+
+foreach m in $allmodels {
+    erase "$data/elasticity_`m'.dta"
+}
+erase "$data/reg_data.dta"
+
+
 
 

@@ -1,0 +1,23 @@
+{
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\begin{tabular}{l*{9}{c}}
+\hline\hline
+                    &\multicolumn{1}{c}{(1)}         &\multicolumn{1}{c}{(2)}         &\multicolumn{1}{c}{(3)}         &\multicolumn{1}{c}{(4)}         &\multicolumn{1}{c}{(5)}         &\multicolumn{1}{c}{(6)}         &\multicolumn{1}{c}{(7)}         &\multicolumn{1}{c}{(8)}         &\multicolumn{1}{c}{(9)}         \\
+\hline
+Price               &       0.115\sym{***}&       0.985\sym{*}  &       1.704\sym{***}&      -0.229         &    -0.00776         &      -0.678\sym{*}  &      -0.203\sym{***}&     -0.0334         &      -0.674\sym{***}\\
+                    &   (0.00283)         &     (0.454)         &     (0.253)         &     (0.117)         &     (0.216)         &     (0.295)         &    (0.0185)         &    (0.0363)         &    (0.0413)         \\
+[1em]
+Promotion           &       0.355\sym{***}&       1.208\sym{**} &       1.913\sym{***}&       0.372\sym{*}  &       0.431\sym{**} &       0.252\sym{*}  &       0.375\sym{***}&       0.421\sym{***}&       0.249\sym{***}\\
+                    &    (0.0162)         &     (0.444)         &     (0.253)         &     (0.132)         &     (0.136)         &     (0.120)         &    (0.0188)         &    (0.0200)         &    (0.0191)         \\
+[1em]
+Constant            &      -8.483\sym{***}&      -12.18\sym{***}&      -15.24\sym{***}&      -7.064\sym{***}&      -7.985\sym{***}&      -5.190\sym{***}&      -7.169\sym{***}&      -7.878\sym{***}&      -5.207\sym{***}\\
+                    &    (0.0130)         &     (1.926)         &     (1.076)         &     (0.488)         &     (0.899)         &     (1.225)         &    (0.0773)         &     (0.151)         &     (0.172)         \\
+\hline
+Observations        &       38544         &       38544         &       38544         &       38544         &       38544         &       38544         &       38544         &       38544         &       38544         \\
+Model               &         OLS         &     Cost IV         &  Hausman IV         &         OLS         &     Cost IV         &  Hausman IV         &         OLS         &     Cost IV         &  Hausman IV         \\
+FE                  &          No         &          No         &          No         &       Brand         &       Brand         &       Brand         & Store-Brand         & Store-Brand         & Store-Brand         \\
+\hline\hline
+\multicolumn{10}{l}{\footnotesize Standard errors in parentheses}\\
+\multicolumn{10}{l}{\footnotesize \sym{*} \(p<0.05\), \sym{**} \(p<0.01\), \sym{***} \(p<0.001\)}\\
+\end{tabular}
+}
