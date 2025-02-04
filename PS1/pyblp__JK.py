@@ -42,10 +42,16 @@ brands = [
 
 
 def get_blp_results(is_logit=False):
+    """Gets results from running pyblp
+
+    Note: If you alter this function, delete /PS1/blp_pickle and /PS1/blp_pickle_logit
+        from your directory to re-reun the program.
+    """
     file_name = './PS1/blp_pickle'
     if is_logit:
         file_name = file_name + '_logit'
     try:
+        # Check for a pickle file which contains the relevant object
         with open(file_name, 'rb') as f:
             results = pickle.load(f)
             f.close()
@@ -85,15 +91,17 @@ def get_blp_results(is_logit=False):
             agent_formulation=agent_formulation,
             product_data=data,
             agent_data=demo,
-            )
+        )
 
-        # Restrict parameters: no random interaction with price, no inc interaction with brand
         if is_logit:
+            # Restrict parameters: no randomness or income interaction at all
             initial_sigma = np.diag([0,0,0,0,0,0])
             initial_pi = np.array([0,0,0,0,0,0])
         else:
+            # Restrict parameters: no random interaction with price, no inc interaction with brand
             initial_sigma = np.diag([0,1, 1, 1, 1, 1])
             initial_pi = np.array([1,0, 0,0 ,0,0])
+
         bfgs = pyblp.Optimization('bfgs',{'gtol':1e-4})
         results = problem.solve(
             initial_sigma,
@@ -101,20 +109,16 @@ def get_blp_results(is_logit=False):
             optimization=bfgs,
             method='2s')
 
+        # Save pickle of the blp object
         file = open(file_name, 'wb')
-
-        # dump information to that file
         pickle.dump(results, file)
-
-        # close the file
         file.close()
         return results
 
 results = get_blp_results()
+logit_results = get_blp_results(True)
 
-print("Question 3.1")
-
-
+print("\nQuestion 2.1\n")
 print(" & coeficient \\\\")
 print("$\\alpha$ & " + f"{round(results.beta.item(0), 4)}" +" \\\\")
 for i, brand in enumerate(brands):
@@ -125,7 +129,6 @@ print(" $\\sigma_{b2}$: Advil & " +f"{round(results.sigma.item((2,2)), 4)} "+"\\
 print(" $\\sigma_{b3}$: Bayer & " +f"{round(results.sigma.item((3,3)), 4)} "+"\\\\")
 print(" $\\sigma_{I}$ & "+f"{round(results.pi.item(0), 4)}")
 
-logit_results = get_blp_results(True)
 
 
 def get_estasticities(results):
@@ -136,26 +139,21 @@ def get_estasticities(results):
 elasticities = get_estasticities(results)
 logit_elasticities = get_estasticities(logit_results)
 
-
 single_market = data['market_ids'] == '9_10'
-print("Market elasticities:")
+single_market_data = data[single_market]
 
+print("\nQuestion 2.2:\n")
 
 print(f"& " +" & ".join(brands) + " \\\\")
 for i, row in enumerate(elasticities[single_market]):
     row = [str(round(i, 4)) for i in row]
     print(f'{brands[i]} & ' + ' & '.join(row) + ' \\\\')
 
-single_market_data = data[single_market]
 
 
-# 2.3 Back out marginal costs (INCOMPLETE)
-
+# 2.3 Back out marginal costs
 Omega_separate_firms = np.eye(11)
-
 costs_separate_firms = results.compute_costs(market_id='9_10', ownership=Omega_separate_firms)
-print("2.3: costs under the assumption that each brand is owned by a single company")
-print(costs_separate_firms)
 
 
 ### Question 3 Mergers
@@ -174,17 +172,12 @@ for i in range(6,9):
 for i in range(9,11):
     Omega[i][i] = 1
 
-for row in Omega:
-    print(" & ".join([str(int(i.item())) for i in row]))
-
 Omega_merged = np.eye(11)
 for i in range(9):
     for j in range(9):
         Omega_merged[i][j] = 1
 
 
-# manual
-## Note: these result in the same answer
 el_data = pd.concat([data,pd.DataFrame(logit_elasticities)])
 rename_dict = {}
 for i in range(11):
@@ -192,28 +185,18 @@ for i in range(11):
 el_data = el_data.rename(columns=rename_dict)
 
 
-
-# manual prices (logit)
-
-wholesale_costs = single_market_data['cost_per_50'].to_numpy()
-
-
 # manual prices (blp, seperate firms)
+wholesale_costs = single_market_data['cost_per_50'].to_numpy()
 mc = single_market_data['prices'].to_numpy() * (np.eye(11) + np.linalg.inv(np.multiply(Omega_separate_firms, elasticities[single_market])))
 manual_costs = [mc[i][i] for i, _ in enumerate(mc)]
 
-mp = mc * np.linalg.inv(np.eye(11) + np.linalg.inv(np.multiply(Omega_merged, elasticities[single_market])))
-print("2.3 Marginal Costs")
+print("\n2.3 Marginal Costs\n")
 print(" & wholesa1le & computed MC \\\\")
 for i, brand in enumerate(brands):
     print(f"{brand} & {wholesale_costs[i]} & {round(manual_costs[i], 4)} \\\\")
 
-manual_prices = [[mp[i][i]] for i, _ in enumerate(mp)]
-
-
 
 # 3.1 Predict prices from logit
-
 # manual
 single_market_data = el_data[el_data['market_ids'] == '9_10']
 mc = single_market_data['prices'].to_numpy() * (np.eye(11) + np.linalg.inv(np.multiply(Omega, logit_elasticities[single_market])))
@@ -232,7 +215,6 @@ original_prices_logit = logit_results.compute_prices(market_id='9_10', costs=log
 
 # 3.3 Predict prices from blp
 costs = results.compute_costs(market_id='9_10', ownership=Omega)
-
 single_market_data.loc[single_market_data['firm_ids'] < 5, 'merger_ids'] = 1
 changed_prices = results.compute_prices(
     # firm_ids=single_market_data['merger_ids'],
@@ -243,8 +225,11 @@ changed_prices = results.compute_prices(
 
 original_prices = results.compute_prices(market_id='9_10', costs=costs)
 original_prices = single_market_data['prices'].to_numpy()
+# manual blp prices
+mp = mc * np.linalg.inv(np.eye(11) + np.linalg.inv(np.multiply(Omega_merged, elasticities[single_market])))
+manual_prices = [[mp[i][i]] for i, _ in enumerate(mp)]
 
-print("Question 3")
+print("\nQuestion 3\n")
 print( "& org. & original predicted &  logit & rnd. coef \\\\")
 for i, brand in enumerate(brands):
     print(f"{brand} &   {round(original_prices[i], 4)} & {round(original_prices_logit[i][0], 4)}& {round(changed_prices_logit[i][0], 4)} & {round(changed_prices[i][0], 4)} \\\\")
